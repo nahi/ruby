@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: ossl_x509name.c 25189 2009-10-02 12:04:37Z akr $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -140,9 +140,9 @@ ossl_x509name_initialize(int argc, VALUE *argv, VALUE self)
 	    X509_NAME *x;
 	    StringValue(str);
 	    p = (unsigned char *)RSTRING_PTR(str);
- 	    x = d2i_X509_NAME(&name, &p, RSTRING_LEN(str));
- 	    DATA_PTR(self) = name;
- 	    if(!x){
+	    x = d2i_X509_NAME(&name, &p, RSTRING_LEN(str));
+	    DATA_PTR(self) = name;
+	    if(!x){
 		ossl_raise(eX509NameError, NULL);
 	    }
 	}

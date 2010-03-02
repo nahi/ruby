@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: ossl_pkey_dsa.c 25189 2009-10-02 12:04:37Z akr $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -433,11 +433,11 @@ ossl_dsa_verify(VALUE self, VALUE digest, VALUE sig)
     return Qfalse;
 }
 
-OSSL_PKEY_BN(dsa, p);
-OSSL_PKEY_BN(dsa, q);
-OSSL_PKEY_BN(dsa, g);
-OSSL_PKEY_BN(dsa, pub_key);
-OSSL_PKEY_BN(dsa, priv_key);
+OSSL_PKEY_BN(dsa, p)
+OSSL_PKEY_BN(dsa, q)
+OSSL_PKEY_BN(dsa, g)
+OSSL_PKEY_BN(dsa, pub_key)
+OSSL_PKEY_BN(dsa, priv_key)
 
 /*
  * INIT

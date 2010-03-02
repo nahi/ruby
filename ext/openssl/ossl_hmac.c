@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: ossl_hmac.c 26743 2010-02-23 17:33:39Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -42,7 +42,7 @@ static void
 ossl_hmac_free(HMAC_CTX *ctx)
 {
     HMAC_CTX_cleanup(ctx);
-    free(ctx);
+    ruby_xfree(ctx);
 }
 
 static VALUE
