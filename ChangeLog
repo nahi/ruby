@@ -1,3 +1,10 @@
+Fri Mar  5 03:01:54 2010  NAKAMURA, Hiroshi  <nahi@ruby-lang.org>
+
+	* test/openssl/test_x509*: make tests pass with OpenSSL 1.0.0b5.
+	  * PKey::PKey#verify raises an exception when a given PKey does not
+	    match with signature.
+	  * PKey::DSA#sign accepts SHA1, SHA256 other than DSS1.
+
 Fri Mar  5 01:48:18 2010  NAKAMURA, Hiroshi  <nahi@ruby-lang.org>
 
 	* ext/openssl/ossl_x509name.c: added X509::Name#hash_old as a wrapper
