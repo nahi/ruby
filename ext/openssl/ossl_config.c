@@ -196,7 +196,7 @@ static void
 rb_ossl_config_modify_check(VALUE config)
 {
     if (OBJ_FROZEN(config)) rb_error_frozen("OpenSSL::Config");
-    if (!OBJ_UNTRUSTED(config) && rb_safe_level() >= 4)
+    if (!OBJ_TAINTED(config) && rb_safe_level() >= 4)
 	rb_raise(rb_eSecurityError, "Insecure: can't modify OpenSSL config");
 }
 
