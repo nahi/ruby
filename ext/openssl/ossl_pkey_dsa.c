@@ -78,25 +78,28 @@ ossl_dsa_new(EVP_PKEY *pkey)
 static DSA *
 dsa_generate(int size)
 {
-    DSA *dsa;
+    BN_GENCB cb;
+    DSA *dsa = DSA_new();
     unsigned char seed[20];
     int seed_len = 20, counter;
     unsigned long h;
 
-    if (!RAND_bytes(seed, seed_len)) {
-	return 0;
+    if (!dsa) return 0;
+    if (!RAND_bytes(seed, seed_len)) goto err;
+    if (rb_block_given_p()) {
+	BN_GENCB_set(&cb, ossl_generate_cb, NULL);
     }
-    dsa = DSA_generate_parameters(size, seed, seed_len, &counter, &h,
-	    rb_block_given_p() ? ossl_generate_cb : NULL,
-	    NULL);
-    if(!dsa) return 0;
-
-    if (!DSA_generate_key(dsa)) {
-	DSA_free(dsa);
-	return 0;
+    if (!DSA_generate_parameters_ex(dsa, size, seed, seed_len, &counter, &h,
+		rb_block_given_p() ? &cb : NULL)) {
+	goto err;
     }
+    if (!DSA_generate_key(dsa)) goto err;
 
     return dsa;
+
+err:
+    if (dsa) DSA_free(dsa);
+    return 0;
 }
 
 /*

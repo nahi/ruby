@@ -84,19 +84,23 @@ ossl_dh_new(EVP_PKEY *pkey)
 static DH *
 dh_generate(int size, int gen)
 {
-    DH *dh;
+    BN_GENCB cb;
+    DH *dh = DH_new();
 
-    dh = DH_generate_parameters(size, gen,
-	    rb_block_given_p() ? ossl_generate_cb : NULL,
-	    NULL);
     if (!dh) return 0;
-
-    if (!DH_generate_key(dh)) {
-	DH_free(dh);
-	return 0;
+    if (rb_block_given_p()) {
+	BN_GENCB_set(&cb, ossl_generate_cb, NULL);
     }
+    if (!DH_generate_parameters_ex(dh, size, gen, rb_block_given_p() ? &cb : NULL)) {
+	goto err;
+    }
+    if (!DH_generate_key(dh)) goto err;
 
     return dh;
+
+err:
+    if (dh) DH_free(dh);
+    return 0;
 }
 
 /*

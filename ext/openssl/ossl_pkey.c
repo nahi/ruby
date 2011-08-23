@@ -21,7 +21,7 @@ ID id_private_q;
 /*
  * callback for generating keys
  */
-void
+int
 ossl_generate_cb(int p, int n, void *arg)
 {
     VALUE ary;
@@ -30,7 +30,7 @@ ossl_generate_cb(int p, int n, void *arg)
     rb_ary_store(ary, 0, INT2NUM(p));
     rb_ary_store(ary, 1, INT2NUM(n));
 
-    rb_yield(ary);
+    return rb_yield(ary) != Qfalse;
 }
 
 /*

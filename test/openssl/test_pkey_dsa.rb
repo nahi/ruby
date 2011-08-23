@@ -22,6 +22,15 @@ class OpenSSL::TestPKeyDSA < Test::Unit::TestCase
     assert_equal([], OpenSSL.errors)
   end
 
+  def test_new_break
+    2.times do
+      assert_raise(OpenSSL::PKey::DSAError) do
+        OpenSSL::PKey::DSA.new(512) { false }
+      end
+      OpenSSL::PKey::DSA.new(512) { true }
+    end
+  end
+
   def test_sys_sign_verify
     key = OpenSSL::TestUtils::TEST_KEY_DSA256
     data = 'Sign me!'

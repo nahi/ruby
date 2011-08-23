@@ -48,6 +48,15 @@ class OpenSSL::TestPKeyRSA < Test::Unit::TestCase
     assert_equal([], OpenSSL.errors)
   end
 
+  def test_new_break
+    2.times do
+      assert_raise(OpenSSL::PKey::RSAError) do
+        OpenSSL::PKey::RSA.new(1024) { false }
+      end
+      OpenSSL::PKey::RSA.new(1024) { true }
+    end
+  end
+
   def test_sign_verify
     key = OpenSSL::TestUtils::TEST_KEY_RSA1024
     digest = OpenSSL::Digest::SHA1.new

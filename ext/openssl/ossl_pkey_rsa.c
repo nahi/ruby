@@ -79,9 +79,28 @@ ossl_rsa_new(EVP_PKEY *pkey)
 static RSA *
 rsa_generate(int size, int exp)
 {
-    return RSA_generate_key(size, exp,
-	    rb_block_given_p() ? ossl_generate_cb : NULL,
-	    NULL);
+    int i;
+    BN_GENCB cb;
+    RSA *rsa = RSA_new();
+    BIGNUM *e = BN_new();
+
+    if (!rsa || !e) goto err;
+    for (i = 0; i < (int)sizeof(exp); ++i)
+	if (exp & (1 << i))
+	    if (BN_set_bit(e, i) == 0)
+		goto err;
+    if (rb_block_given_p()) {
+	BN_GENCB_set(&cb, ossl_generate_cb, NULL);
+    }
+    if (RSA_generate_key_ex(rsa, size, e, rb_block_given_p() ? &cb : NULL)) {
+	BN_free(e);
+	return rsa;
+    }
+
+err:
+    if (e) BN_free(e);
+    if (rsa) RSA_free(rsa);
+    return 0;
 }
 
 /*
