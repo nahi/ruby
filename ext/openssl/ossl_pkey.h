@@ -40,7 +40,7 @@ extern ID id_private_q;
 
 void ossl_generate_cb(int, int, void *);
 #define HAVE_BN_GENCB defined(HAVE_RSA_GENERATE_KEY_EX) || defined(HAVE_DH_GENERATE_PARAMETERS_EX) || defined(HAVE_DSA_GENERATE_PARAMETERS_EX)
-#ifdef HAVE_BN_GENCB
+#if HAVE_BN_GENCB
 struct ossl_generate_cb_arg {
     int yield;
     int stop;

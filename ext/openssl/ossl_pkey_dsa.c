@@ -75,6 +75,7 @@ ossl_dsa_new(EVP_PKEY *pkey)
 /*
  * Private
  */
+#if defined(HAVE_DSA_GENERATE_PARAMETERS_EX) && HAVE_BN_GENCB
 struct dsa_blocking_gen_arg {
     DSA *dsa;
     int size;
@@ -92,11 +93,12 @@ dsa_blocking_gen(void *arg)
     struct dsa_blocking_gen_arg *gen = (struct dsa_blocking_gen_arg *)arg;
     gen->result = DSA_generate_parameters_ex(gen->dsa, gen->size, gen->seed, gen->seed_len, gen->counter, gen->h, gen->cb);
 }
+#endif
 
 static DSA *
 dsa_generate(int size)
 {
-#if defined(HAVE_DSA_GENERATE_PARAMETERS_EX) && defined(HAVE_BN_GENCB)
+#if defined(HAVE_DSA_GENERATE_PARAMETERS_EX) && HAVE_BN_GENCB
     BN_GENCB cb;
     struct ossl_generate_cb_arg cb_arg;
     struct dsa_blocking_gen_arg gen_arg;

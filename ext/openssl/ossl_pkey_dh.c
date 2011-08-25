@@ -81,6 +81,7 @@ ossl_dh_new(EVP_PKEY *pkey)
 /*
  * Private
  */
+#if defined(HAVE_DH_GENERATE_PARAMETERS_EX) && HAVE_BN_GENCB
 struct dh_blocking_gen_arg {
     DH *dh;
     int size;
@@ -95,11 +96,12 @@ dh_blocking_gen(void *arg)
     struct dh_blocking_gen_arg *gen = (struct dh_blocking_gen_arg *)arg;
     gen->result = DH_generate_parameters_ex(gen->dh, gen->size, gen->gen, gen->cb);
 }
+#endif
 
 static DH *
 dh_generate(int size, int gen)
 {
-#if defined(HAVE_DH_GENERATE_PARAMETERS_EX) && defined(HAVE_BN_GENCB)
+#if defined(HAVE_DH_GENERATE_PARAMETERS_EX) && HAVE_BN_GENCB
     BN_GENCB cb;
     struct ossl_generate_cb_arg cb_arg;
     struct dh_blocking_gen_arg gen_arg;

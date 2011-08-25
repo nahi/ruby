@@ -33,7 +33,7 @@ ossl_generate_cb(int p, int n, void *arg)
     rb_yield(ary);
 }
 
-#if defined(HAVE_BN_GENCB)
+#if HAVE_BN_GENCB
 /* OpenSSL 2nd version of GN generation callback */
 int
 ossl_generate_cb_2(int p, int n, BN_GENCB *cb)
