@@ -79,28 +79,46 @@ ossl_rsa_new(EVP_PKEY *pkey)
 static RSA *
 rsa_generate(int size, int exp)
 {
+#if defined(HAVE_RSA_GENERATE_KEY_EX) && defined(HAVE_BN_GENCB)
     int i;
     BN_GENCB cb;
+    struct ossl_generate_cb_arg arg;
     RSA *rsa = RSA_new();
     BIGNUM *e = BN_new();
 
-    if (!rsa || !e) goto err;
-    for (i = 0; i < (int)sizeof(exp); ++i)
-	if (exp & (1 << i))
-	    if (BN_set_bit(e, i) == 0)
-		goto err;
-    if (rb_block_given_p()) {
-	BN_GENCB_set(&cb, ossl_generate_cb, NULL);
+    if (!rsa || !e) {
+	if (e) BN_free(e);
+	if (rsa) RSA_free(rsa);
+	return 0;
     }
-    if (RSA_generate_key_ex(rsa, size, e, rb_block_given_p() ? &cb : NULL)) {
-	BN_free(e);
-	return rsa;
+    for (i = 0; i < (int)sizeof(exp); ++i) {
+	if (exp & (1 << i)) {
+	    if (BN_set_bit(e, i) == 0) {
+		BN_free(e);
+		RSA_free(rsa);
+		return 0;
+	    }
+	}
     }
 
-err:
-    if (e) BN_free(e);
-    if (rsa) RSA_free(rsa);
-    return 0;
+    memset(&arg, 0, sizeof(struct ossl_generate_cb_arg));
+    if (rb_block_given_p())
+	arg.yield = 1;
+    BN_GENCB_set(&cb, ossl_generate_cb_2, &arg);
+    if (!RSA_generate_key_ex(rsa, size, e, &cb)) {
+	BN_free(e);
+	RSA_free(rsa);
+	if (arg.state) rb_jump_tag(arg.state);
+	return 0;
+    }
+
+    BN_free(e);
+    return rsa;
+#else
+    return RSA_generate_key(size, exp,
+            rb_block_given_p() ? ossl_generate_cb : NULL,
+            NULL);
+#endif
 }
 
 /*

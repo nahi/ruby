@@ -49,11 +49,9 @@ class OpenSSL::TestPKeyRSA < Test::Unit::TestCase
   end
 
   def test_new_break
-    2.times do
-      assert_raise(OpenSSL::PKey::RSAError) do
-        OpenSSL::PKey::RSA.new(1024) { false }
-      end
-      OpenSSL::PKey::RSA.new(1024) { true }
+    assert_nil(OpenSSL::PKey::RSA.new(1024) { break })
+    assert_raise(RuntimeError) do
+      OpenSSL::PKey::RSA.new(1024) { raise }
     end
   end
 

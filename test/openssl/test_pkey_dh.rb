@@ -9,11 +9,9 @@ class OpenSSL::TestPKeyDH < Test::Unit::TestCase
   end
 
   def test_new_break
-    2.times do
-      assert_raise(OpenSSL::PKey::DHError) do
-        OpenSSL::PKey::DH.new(256) { false }
-      end
-      OpenSSL::PKey::DH.new(256) { true }
+    assert_nil(OpenSSL::PKey::DH.new(256) { break })
+    assert_raises(RuntimeError) do
+      OpenSSL::PKey::DH.new(256) { raise }
     end
   end
 

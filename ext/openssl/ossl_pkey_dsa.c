@@ -78,28 +78,50 @@ ossl_dsa_new(EVP_PKEY *pkey)
 static DSA *
 dsa_generate(int size)
 {
+#if defined(HAVE_DSA_GENERATE_PARAMETERS_EX) && defined(HAVE_BN_GENCB)
     BN_GENCB cb;
+    struct ossl_generate_cb_arg arg;
     DSA *dsa = DSA_new();
     unsigned char seed[20];
     int seed_len = 20, counter;
     unsigned long h;
 
     if (!dsa) return 0;
-    if (!RAND_bytes(seed, seed_len)) goto err;
-    if (rb_block_given_p()) {
-	BN_GENCB_set(&cb, ossl_generate_cb, NULL);
+    if (!RAND_bytes(seed, seed_len)) {
+	DSA_free(dsa);
+	return 0;
     }
-    if (!DSA_generate_parameters_ex(dsa, size, seed, seed_len, &counter, &h,
-		rb_block_given_p() ? &cb : NULL)) {
-	goto err;
+
+    memset(&arg, 0, sizeof(struct ossl_generate_cb_arg));
+    if (rb_block_given_p())
+	arg.yield = 1;
+    BN_GENCB_set(&cb, ossl_generate_cb_2, &arg);
+    if (!DSA_generate_parameters_ex(dsa, size, seed, seed_len, &counter, &h, &cb)) {
+	DSA_free(dsa);
+	if (arg.state) rb_jump_tag(arg.state);
+	return 0;
     }
-    if (!DSA_generate_key(dsa)) goto err;
+#else
+    DSA *dsa;
+    unsigned char seed[20];
+    int seed_len = 20, counter;
+    unsigned long h;
+
+    if (!RAND_bytes(seed, seed_len)) {
+        return 0;
+    }
+    dsa = DSA_generate_parameters(size, seed, seed_len, &counter, &h,
+            rb_block_given_p() ? ossl_generate_cb : NULL,
+            NULL);
+    if(!dsa) return 0;
+#endif
+
+    if (!DSA_generate_key(dsa)) {
+        DSA_free(dsa);
+        return 0;
+    }
 
     return dsa;
-
-err:
-    if (dsa) DSA_free(dsa);
-    return 0;
 }
 
 /*
