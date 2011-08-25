@@ -60,6 +60,13 @@ ossl_generate_cb_2(int p, int n, BN_GENCB *cb)
     if (arg->stop) return 0;
     return 1;
 }
+
+void
+ossl_generate_cb_stop(void *ptr)
+{
+    struct ossl_generate_cb_arg *arg = (struct ossl_generate_cb_arg *)ptr;
+    arg->stop = 1;
+}
 #endif
 
 /*

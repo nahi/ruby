@@ -47,6 +47,7 @@ struct ossl_generate_cb_arg {
     int state;
 }; 
 int ossl_generate_cb_2(int p, int n, BN_GENCB *cb);
+void ossl_generate_cb_stop(void *ptr);
 #endif
 
 VALUE ossl_pkey_new(EVP_PKEY *);
