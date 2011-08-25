@@ -75,12 +75,31 @@ ossl_dsa_new(EVP_PKEY *pkey)
 /*
  * Private
  */
+struct dsa_blocking_gen_arg {
+    DSA *dsa;
+    int size;
+    unsigned char* seed;
+    int seed_len;
+    int *counter;
+    unsigned long *h;
+    BN_GENCB *cb;
+    int result;
+};
+
+static void
+dsa_blocking_gen(void *arg)
+{
+    struct dsa_blocking_gen_arg *gen = (struct dsa_blocking_gen_arg *)arg;
+    gen->result = DSA_generate_parameters_ex(gen->dsa, gen->size, gen->seed, gen->seed_len, gen->counter, gen->h, gen->cb);
+}
+
 static DSA *
 dsa_generate(int size)
 {
 #if defined(HAVE_DSA_GENERATE_PARAMETERS_EX) && defined(HAVE_BN_GENCB)
     BN_GENCB cb;
-    struct ossl_generate_cb_arg arg;
+    struct ossl_generate_cb_arg cb_arg;
+    struct dsa_blocking_gen_arg gen_arg;
     DSA *dsa = DSA_new();
     unsigned char seed[20];
     int seed_len = 20, counter;
@@ -92,13 +111,27 @@ dsa_generate(int size)
 	return 0;
     }
 
-    memset(&arg, 0, sizeof(struct ossl_generate_cb_arg));
+    memset(&cb_arg, 0, sizeof(struct ossl_generate_cb_arg));
     if (rb_block_given_p())
-	arg.yield = 1;
-    BN_GENCB_set(&cb, ossl_generate_cb_2, &arg);
-    if (!DSA_generate_parameters_ex(dsa, size, seed, seed_len, &counter, &h, &cb)) {
+	cb_arg.yield = 1;
+    BN_GENCB_set(&cb, ossl_generate_cb_2, &cb_arg);
+    gen_arg.dsa = dsa;
+    gen_arg.size = size;
+    gen_arg.seed = seed;
+    gen_arg.seed_len = seed_len;
+    gen_arg.counter = &counter;
+    gen_arg.h = &h;
+    gen_arg.cb = &cb;
+    if (cb_arg.yield == 1) {
+	/* we cannot release GVL when callback proc is supplied */
+	dsa_blocking_gen(&gen_arg);
+    } else {
+	/* there's a chance to unblock */
+	rb_thread_blocking_region(dsa_blocking_gen, &gen_arg, ossl_generate_cb_stop, &cb_arg);
+    }
+    if (!gen_arg.result) {
 	DSA_free(dsa);
-	if (arg.state) rb_jump_tag(arg.state);
+	if (cb_arg.state) rb_jump_tag(cb_arg.state);
 	return 0;
     }
 #else
