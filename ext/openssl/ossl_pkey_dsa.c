@@ -143,17 +143,16 @@ dsa_generate(int size)
     unsigned long h;
 
     if (!RAND_bytes(seed, seed_len)) {
-        return 0;
+	return 0;
     }
     dsa = DSA_generate_parameters(size, seed, seed_len, &counter, &h,
-            rb_block_given_p() ? ossl_generate_cb : NULL,
-            NULL);
+	    rb_block_given_p() ? ossl_generate_cb : NULL, NULL);
     if(!dsa) return 0;
 #endif
 
     if (!DSA_generate_key(dsa)) {
-        DSA_free(dsa);
-        return 0;
+	DSA_free(dsa);
+	return 0;
     }
 
     return dsa;

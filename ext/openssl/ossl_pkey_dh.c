@@ -133,9 +133,7 @@ dh_generate(int size, int gen)
 #else
     DH *dh;
 
-    dh = DH_generate_parameters(size, gen,
-            rb_block_given_p() ? ossl_generate_cb : NULL,
-            NULL);
+    dh = DH_generate_parameters(size, gen, rb_block_given_p() ? ossl_generate_cb : NULL, NULL);
     if (!dh) return 0;
 #endif
 

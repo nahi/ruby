@@ -144,9 +144,7 @@ rsa_generate(int size, int exp)
     BN_free(e);
     return rsa;
 #else
-    return RSA_generate_key(size, exp,
-            rb_block_given_p() ? ossl_generate_cb : NULL,
-            NULL);
+    return RSA_generate_key(size, exp, rb_block_given_p() ? ossl_generate_cb : NULL, NULL);
 #endif
 }
 
