@@ -427,31 +427,8 @@ class PStore
     is_windows
   end
 
-  # Check whether Marshal.dump supports the 'canonical' option. This option
-  # makes sure that Marshal.dump always dumps data structures in the same order.
-  # This is important because otherwise, the checksums that we generate may differ.
-  def marshal_dump_supports_canonical_option?
-    begin
-      Marshal.dump(nil, -1, true)
-      result = true
-    rescue
-      result = false
-    end
-    self.class.instance_method(:marshal_dump_supports_canonical_option?)
-    self.class.__send__(:define_method, :marshal_dump_supports_canonical_option?) do
-      result
-    end
-    result
-  end
-
   def save_data(original_checksum, original_file_size, file)
-    # We only want to save the new data if the size or checksum has changed.
-    # This results in less filesystem calls, which is good for performance.
-    if marshal_dump_supports_canonical_option?
-      new_data = Marshal.dump(@table, -1, true)
-    else
-      new_data = dump(@table)
-    end
+    new_data = dump(@table)
     new_checksum = Digest::MD5.digest(new_data)
 
     if new_data.size != original_file_size || new_checksum != original_checksum
