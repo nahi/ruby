@@ -402,11 +402,11 @@ class PStore
         # This seems to be a newly-created file.
         table = {}
         checksum = empty_marshal_checksum
-        size = empty_marshal_data.size
+        size = empty_marshal_data.bytesize
       else
         table = load(data)
         checksum = Digest::MD5.digest(data)
-        size = data.size
+        size = data.bytesize
         if !table.is_a?(Hash)
           raise Error, "PStore file seems to be corrupted."
         end
@@ -429,9 +429,8 @@ class PStore
 
   def save_data(original_checksum, original_file_size, file)
     new_data = dump(@table)
-    new_checksum = Digest::MD5.digest(new_data)
 
-    if new_data.size != original_file_size || new_checksum != original_checksum
+    if new_data.bytesize != original_file_size || Digest::MD5.digest(new_data) != original_checksum
       if @ultra_safe && !on_windows?
         # Windows doesn't support atomic file renames.
         save_data_with_atomic_file_rename_strategy(new_data, file)
@@ -461,8 +460,8 @@ class PStore
 
   def save_data_with_fast_strategy(data, file)
     file.rewind
-    file.truncate(0)
     file.write(data)
+    file.truncate(data.bytesize)
   end
 
 
