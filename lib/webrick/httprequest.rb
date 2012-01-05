@@ -423,7 +423,7 @@ module WEBrick
           boundary = HTTPUtils::dequote($1)
           @query = HTTPUtils::parse_form_data(body, boundary)
         else
-          @query = Hash.new
+          @query = RadixTree.new
         end
       rescue => ex
         raise HTTPStatus::BadRequest, ex.message

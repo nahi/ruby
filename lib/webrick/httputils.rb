@@ -10,6 +10,7 @@
 
 require 'socket'
 require 'tempfile'
+require 'radix_tree'
 
 module WEBrick
   CR   = "\x0d"
@@ -119,7 +120,7 @@ module WEBrick
     #####
 
     def parse_header(raw)
-      header = Hash.new([].freeze)
+      header = RadixTree.new([].freeze)
       field = nil
       raw.each_line{|line|
         case line
@@ -286,7 +287,7 @@ module WEBrick
     end
 
     def parse_query(str)
-      query = Hash.new
+      query = RadixTree.new
       if str
         str.split(/[&;]/).each{|x|
           next if x.empty?
@@ -308,7 +309,7 @@ module WEBrick
 
     def parse_form_data(io, boundary)
       boundary_regexp = /\A--#{Regexp.quote(boundary)}(--)?#{CRLF}\z/
-      form_data = Hash.new
+      form_data = RadixTree.new
       return form_data unless io
       data = nil
       io.each_line{|line|

@@ -12,6 +12,7 @@
 # $IPR: digestauth.rb,v 1.5 2003/02/20 07:15:47 gotoyuzo Exp $
 
 require 'webrick/config'
+require 'webrick/httputils'
 require 'webrick/httpstatus'
 require 'webrick/httpauth/authenticator'
 require 'digest/md5'
@@ -272,7 +273,7 @@ module WEBrick
       end
 
       def split_param_value(string)
-        ret = {}
+        ret = RadixTree.new
         while string.bytesize != 0
           case string
           when /^\s*([\w\-\.\*\%\!]+)=\s*\"((\\.|[^\"])*)\"\s*,?/
