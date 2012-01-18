@@ -736,6 +736,55 @@ class CGI
     stdoutput.print(*options)
   end
 
+
+  # Class for size (number of elements) limited Hash-like container.
+  #
+  #   container = LimitedHash.new(3)
+  #   container[:a] = 1
+  #   container[:b] = 2
+  #   container[:c] = 3
+  #   container[:d] = 4 # => raise HashKeySizeError
+  #   container.hash # => a Hash
+  class LimitedHash
+    class HashKeySizeError < StandardError; end
+
+    attr_accessor :hash
+
+    def initialize(limit = nil)
+      @limit = limit
+      @key_size = 0
+      @hash = Hash.new
+    end
+
+    def has_key?(key)
+      @hash.has_key?(key)
+    end
+
+    def [](key)
+      @hash[key]
+    end
+
+    def []=(key, value)
+      @hash[key] = value
+      count
+    end
+
+    def each
+      @hash.each do |x|
+        yield x
+      end
+    end
+
+    def count
+      @key_size += 1
+      if @limit and @key_size > @limit
+        raise HashKeySizeError, "Hash key size limit exceeded: #{@limit}"
+      end
+    end
+    private :count
+  end # class LimitedHash
+
+
   require "delegate"
 
   # Class representing an HTTP cookie.
@@ -872,8 +921,9 @@ class CGI
   #   cookies = CGI::Cookie::parse("raw_cookie_string")
   #     # { "name1" => cookie1, "name2" => cookie2, ... }
   #
-  def Cookie::parse(raw_cookie)
-    cookies = Hash.new([])
+  def Cookie::parse(raw_cookie, limit = nil)
+    cookies = LimitedHash.new(limit)
+    cookies.hash = Hash.new([])
     return cookies unless raw_cookie
 
     raw_cookie.split(/[;,]\s?/).each do |pairs|
@@ -888,7 +938,7 @@ class CGI
       cookies[name] = Cookie::new(name, *values)
     end
 
-    cookies
+    cookies.hash
   end
 
   # Parse an HTTP query string into a hash of key=>value pairs.
@@ -897,8 +947,9 @@ class CGI
   #     # {"name1" => ["value1", "value2", ...],
   #     #  "name2" => ["value1", "value2", ...], ... }
   #
-  def CGI::parse(query)
-    params = Hash.new([].freeze)
+  def CGI::parse(query, limit = nil)
+    params = LimitedHash.new(limit)
+    params.hash = Hash.new([].freeze)
 
     query.split(/[&;]/n).each do |pairs|
       key, value = pairs.split('=',2).collect{|v| CGI::unescape(v) }
@@ -909,7 +960,7 @@ class CGI
       end
     end
 
-    params
+    params.hash
   end
 
   # Mixin module. It provides the follow functionality groups:
@@ -971,7 +1022,8 @@ class CGI
     end
 
     def read_multipart(boundary, content_length)
-      params = Hash.new([])
+      params = LimitedHash.new(@options[:param_key_size_limit])
+      params.hash = Hash.new([])
       boundary = "--" + boundary
       quoted_boundary = Regexp.quote(boundary, "n")
       buf = ""
@@ -1073,7 +1125,7 @@ class CGI
       end
       raise EOFError, "bad boundary end of body part" unless boundary_end=~/--/
 
-      params
+      params.hash
     end # read_multipart
     private :read_multipart
 
@@ -1132,11 +1184,12 @@ class CGI
                       stdinput.read(Integer(env_table['CONTENT_LENGTH'])) or ''
                     else
                       read_from_cmdline
-                    end
+                    end,
+                    @options[:param_key_size_limit]
                   )
       end
 
-      @cookies = CGI::Cookie::parse((env_table['HTTP_COOKIE'] or env_table['COOKIE']))
+      @cookies = CGI::Cookie::parse((env_table['HTTP_COOKIE'] or env_table['COOKIE']), @options[:param_key_size_limit])
     end
     private :initialize_query
 
@@ -2255,15 +2308,44 @@ class CGI
 
   # Creates a new CGI instance.
   #
-  # +type+ specifies which version of HTML to load the HTML generation
-  # methods for.  The following versions of HTML are supported:
+  # :call-seq:
+  #   CGI.new(tag_maker)
+  #   CGI.new(options_hash = {})
   #
-  # html3:: HTML 3.x
-  # html4:: HTML 4.0
-  # html4Tr:: HTML 4.0 Transitional
-  # html4Fr:: HTML 4.0 with Framesets
   #
-  # If not specified, no HTML generation methods will be loaded.
+  # <tt>tag_maker (formerly called 'type')</tt>::
+  #   This is the same as using the +options_hash+ form with the value <tt>{
+  #   :tag_maker => tag_maker }</tt>
+  #
+  # <tt>options_hash</tt>::
+  #   A Hash that recognizes two options:
+  #
+  #   <tt>:tag_maker</tt>::
+  #     String that specifies which version of the HTML generation methods to
+  #     use.  If not specified, no HTML generation methods will be loaded.
+  #
+  #     The following values are supported:
+  #
+  #     "html3":: HTML 3.x
+  #     "html4":: HTML 4.0
+  #     "html4Tr":: HTML 4.0 Transitional
+  #     "html4Fr":: HTML 4.0 with Framesets
+  #
+  #   <tt>:param_key_size_limit</tt>::
+  #     specifies the limit of numbers of following params.
+  #
+  #     * Query part keys in a request
+  #     * url-encoded keys pairs in a body
+  #     * form-data keys in multipart/form-data body
+  #     * Cookie parameters
+  #
+  #     The limit affects for the all 4 parameters, and it's 1024 by default
+  #     from security reason.  For details about related vulnerabilities,
+  #     see CVE-2011-4815.
+  #
+  #     You can configure the limit by passing :param_key_size_limit option to 
+  #     CGI.new like CGI.new(:param_key_size_limit => 2048).  Passing nil as the 
+  #     option means unlimited.
   #
   # If the CGI object is not created in a standard CGI call environment
   # (that is, it can't locate REQUEST_METHOD in its environment), then
@@ -2271,7 +2353,15 @@ class CGI
   # from the command line or (failing that) from standard input.  Otherwise,
   # cookies and other parameters are parsed automatically from the standard
   # CGI locations, which varies according to the REQUEST_METHOD.
-  def initialize(type = "query")
+  def initialize(options = {})
+    @options = {}
+    case options
+    when Hash
+      @options.merge!(options)
+    when String
+      @options[:tag_maker]=options
+    end
+    @options[:param_key_size_limit] ||= 1024
     if defined?(MOD_RUBY) && !ENV.key?("GATEWAY_INTERFACE")
       Apache.request.setup_cgi_env
     end
@@ -2288,7 +2378,7 @@ class CGI
     @output_cookies = nil
     @output_hidden = nil
 
-    case type
+    case @options[:tag_maker]
     when "html3"
       extend Html3
       element_init()
