@@ -363,8 +363,8 @@ class CGI
   #     # {"name1" => ["value1", "value2", ...],
   #     #  "name2" => ["value1", "value2", ...], ... }
   #
-  def CGI::parse(query)
-    params = {}
+  def CGI::parse(query, limit = nil)
+    params = LimitedHash.new(limit)
     query.split(/[&;]/).each do |pairs|
       key, value = pairs.split('=',2).collect{|v| CGI::unescape(v) }
       if key && value
@@ -373,8 +373,9 @@ class CGI
         params[key]=[]
       end
     end
-    params.default=[].freeze
-    params
+    hash = params.hash
+    hash.default=[].freeze
+    hash
   end
 
   # Maximum content length of post data
@@ -385,6 +386,54 @@ class CGI
 
   # Maximum number of request parameters when multipart
   MAX_MULTIPART_COUNT = 128
+
+  # Class for size (number of elements) limited Hash-like container.
+  #
+  #   container = LimitedHash.new(3)
+  #   container[:a] = 1
+  #   container[:b] = 2
+  #   container[:c] = 3
+  #   container[:d] = 4 # => raise HashKeySizeError
+  #   container.hash # => a Hash
+  class LimitedHash
+    class HashKeySizeError < StandardError; end
+
+    attr_accessor :hash
+
+    def initialize(limit = nil)
+      @limit = limit
+      @key_size = 0
+      @hash = Hash.new
+    end
+
+    def has_key?(key)
+      @hash.has_key?(key)
+    end
+
+    def [](key)
+      @hash[key]
+    end
+
+    def []=(key, value)
+      @hash[key] = value
+      count
+    end
+
+    def each
+      @hash.each do |x|
+        yield x
+      end
+    end
+
+    def count
+      @key_size += 1
+      if @limit and @key_size > @limit
+        raise HashKeySizeError, "Hash key size limit exceeded: #{@limit}"
+      end
+    end
+    private :count
+  end # class LimitedHash
+
 
   # Mixin module that provides the following:
   #
@@ -469,7 +518,7 @@ class CGI
       raise EOFError.new("no content body")  unless status
       raise EOFError.new("bad content body") unless first_line == status
       ## parse and set params
-      params = {}
+      params = LimitedHash.new(@options[:param_key_size_limit])
       @files = {}
       boundary_rexp = /--#{Regexp.quote(boundary)}(#{EOL}|--)/
       boundary_size = "#{EOL}--#{boundary}#{EOL}".bytesize
@@ -560,8 +609,9 @@ class CGI
         break if content_length == -1
       end
       raise EOFError, "bad boundary end of body part" unless boundary_end =~ /--/
-      params.default = []
-      params
+      hash = params.hash
+      hash.default = []
+      hash
     end # read_multipart
     private :read_multipart
     def create_body(is_large)  #:nodoc:
@@ -643,7 +693,8 @@ class CGI
                       stdinput.read(Integer(env_table['CONTENT_LENGTH'])) or ''
                     else
                       read_from_cmdline
-                    end.dup.force_encoding(@accept_charset)
+                    end.dup.force_encoding(@accept_charset),
+                    @options[:param_key_size_limit]
                   )
         unless Encoding.find(@accept_charset) == Encoding::ASCII_8BIT
           @params.each do |key,values|
@@ -660,7 +711,7 @@ class CGI
         end
       end
 
-      @cookies = CGI::Cookie::parse((env_table['HTTP_COOKIE'] or env_table['COOKIE']))
+      @cookies = CGI::Cookie::parse((env_table['HTTP_COOKIE'] or env_table['COOKIE']), @options[:param_key_size_limit])
     end
     private :initialize_query
 
@@ -743,7 +794,7 @@ class CGI
   #   +options_hash+ form, since it also allows you specify the charset you
   #   will accept.
   # <tt>options_hash</tt>::
-  #   A Hash that recognizes two options:
+  #   A Hash that recognizes three options:
   #
   #   <tt>:accept_charset</tt>::
   #     specifies encoding of received query string.  If omitted,
@@ -771,6 +822,22 @@ class CGI
   #     "html4Tr":: HTML 4.0 Transitional
   #     "html4Fr":: HTML 4.0 with Framesets
   #
+  #   <tt>:param_key_size_limit</tt>::
+  #     specifies the limit of numbers of following params.
+  #
+  #     * Query part keys in a request
+  #     * url-encoded keys pairs in a body
+  #     * form-data keys in multipart/form-data body
+  #     * Cookie parameters
+  #
+  #     The limit affects for the all 4 parameters, and it's 1024 by default
+  #     from security reason.  For details about related vulnerabilities,
+  #     see CVE-2011-4815.
+  #
+  #     You can configure the limit by passing :param_key_size_limit option to 
+  #     CGI.new like CGI.new(:param_key_size_limit => 2048).  Passing nil as the 
+  #     option means unlimited.
+  #
   # <tt>block</tt>::
   #   If provided, the block is called when an invalid encoding is
   #   encountered. For example:
@@ -795,6 +862,7 @@ class CGI
     when String
       @options[:tag_maker]=options
     end
+    @options[:param_key_size_limit] ||= 1024
     @accept_charset=@options[:accept_charset]
     if defined?(MOD_RUBY) && !ENV.key?("GATEWAY_INTERFACE")
       Apache.request.setup_cgi_env

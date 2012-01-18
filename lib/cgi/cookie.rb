@@ -141,8 +141,9 @@ class CGI
   #   cookies = CGI::Cookie::parse("raw_cookie_string")
   #     # { "name1" => cookie1, "name2" => cookie2, ... }
   #
-  def Cookie::parse(raw_cookie)
-    cookies = Hash.new([])
+  def Cookie::parse(raw_cookie, limit = nil)
+    cookies = LimitedHash.new(limit)
+    cookies.hash = Hash.new([])
     return cookies unless raw_cookie
 
     raw_cookie.split(/[;,]\s?/).each do |pairs|
@@ -157,7 +158,7 @@ class CGI
       cookies[name] = Cookie::new(name, *values)
     end
 
-    cookies
+    cookies.hash
   end
 end
 

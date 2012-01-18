@@ -17,7 +17,7 @@ class CGICoreTest < Test::Unit::TestCase
 
 
   def teardown
-    @environ.each do |key, val| ENV.delete(key) end
+    @environ.each do |key, val| ENV.delete(key) end if @environ
     $stdout = STDOUT
   end
 
@@ -33,6 +33,56 @@ class CGICoreTest < Test::Unit::TestCase
     cgi = CGI.new
     assert_equal(["a","b","c","d"],cgi.keys.sort) if RUBY_VERSION>="1.9"
     assert_equal("",cgi["d"])
+  end
+
+  def test_cgi_query_param_key_size_limit
+    @environ = {
+      'REQUEST_METHOD'  => 'GET',
+      'QUERY_STRING'    => 'a=1&b=2&c=3&d=4'
+    }
+    ENV.update(@environ)
+    assert_nothing_raised do
+      cgi = CGI.new
+      cgi = CGI.new(:param_key_size_limit => nil)
+      cgi = CGI.new(:param_key_size_limit => 4)
+    end
+    assert_raise(CGI::LimitedHash::HashKeySizeError) do
+      cgi = CGI.new(:param_key_size_limit => 3)
+    end
+  end
+
+  def test_cgi_cookie_param_key_size_limit
+    @environ = {
+      'REQUEST_METHOD'  => 'GET',
+      'HTTP_COOKIE'     => 'a=1; b=2; c=3; d=4;'
+    }
+    ENV.update(@environ)
+    assert_nothing_raised do
+      cgi = CGI.new
+      cgi = CGI.new(:param_key_size_limit => nil)
+      cgi = CGI.new(:param_key_size_limit => 4)
+    end
+    assert_raise(CGI::LimitedHash::HashKeySizeError) do
+      cgi = CGI.new(:param_key_size_limit => 3)
+    end
+  end
+
+  def test_cgi_parse
+    assert_equal({}, CGI::parse(''))
+    assert_equal({'a' => ['b']}, CGI::parse('a=b'))
+    assert_equal({'a' => ['b'], 'c' => ['d']}, CGI::parse('a=b&c=d'))
+    assert_equal({'a' => ['b'], 'c' => ['d']}, CGI::parse('a=b;c=d'))
+    assert_equal({'a' => ['b'], 'c' => ['d']}, CGI::parse('a=b;&;&c=d'))
+    assert_equal({'a' => ['b=c']}, CGI::parse('a=b=c'))
+    assert_equal({'/' => ['/']}, CGI::parse('%2f=%2f'))
+    assert_equal({'a' => ['b', 'c']}, CGI::parse('a=b;a=c'))
+    assert_raise(CGI::LimitedHash::HashKeySizeError) do
+      CGI::parse('a=b', 0)
+    end
+    assert_raise(CGI::LimitedHash::HashKeySizeError) do
+      CGI::parse('a=b;c=d', 1)
+    end
+    assert_equal({'a' => ['b'], 'c' => ['d']}, CGI::parse('a=b;c=d', 2))
   end
 
   def test_cgi_core_params_GET
