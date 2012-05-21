@@ -229,7 +229,7 @@ module WEBrick
       if @http_version.major > 0
         data = status_line()
         @header.each{|key, value|
-          tmp = key.gsub(/\bwww|^te$|\b\w/){ $&.upcase }
+          tmp = (key == 'etag' ? 'ETag' : key.gsub(/\bwww|^te$|\b\w/){ $&.upcase })
           data << "#{tmp}: #{value}" << CRLF
         }
         @cookies.each{|cookie|
